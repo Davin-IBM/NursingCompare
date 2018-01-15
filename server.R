@@ -66,61 +66,62 @@ function(input, output, session) {
   ################################################################################
   observeEvent(
     input$providerDetails,  {
-      provider_num <- v$prov_df$PROVNUM[[input$provDataTable_rows_selected]]
-      print(provider_num)
-      rec <- get_dataset('PROVIDER_INFO') %>% filter(PROVNUM == provider_num)
-      if (nrow(rec) == 1) {
-        showModal(
-          modalDialog(
-            title = 'PROVIDER DETAILS',
-            size = 'l', easyClose = TRUE,
-            div(
-              box (
-                width = 12, solidHeader = TRUE, status = 'info',
-                fluidRow(
-                  column(
-                    width = 8,
-                    h3(paste0('OVERALL RATING: ', five_star(rec$OVERALL_RATING))),
-                    shiny::img(src = paste0('images/flags-mini/', tolower(rec$STATE), '.png')),
-                    h4(                             
-                      paste0('NAME: ', rec$PROVNAME), br(),
-                      paste0('ADDRESS: ', rec$ADDRESS), br(),
-                      paste0('STATE: ', rec$STATE), br(),
-                      paste0('COUNTY: ', rec$COUNTY_NAME), br(),
-                      paste0('CITY: ', rec$CITY), br(),
-                      paste0('ZIP: ', rec$ZIP), br()
+      if (!is.null(input$provDataTable_rows_selected)) {
+        provider_num <- v$prov_df$PROVNUM[[input$provDataTable_rows_selected]]
+        #print(provider_num)
+        rec <- get_dataset('PROVIDER_INFO') %>% filter(PROVNUM == provider_num)
+        if (nrow(rec) == 1) {
+          showModal(
+            modalDialog(
+              title = 'PROVIDER DETAILS',
+              size = 'l', easyClose = TRUE,
+              div(
+                box (
+                  width = 12, solidHeader = TRUE, status = 'info',
+                  fluidRow(
+                    column(
+                      width = 8,
+                      h3(paste0('OVERALL RATING: ', five_star(rec$OVERALL_RATING))),
+                      h4(
+                        paste0('NAME: ', rec$PROVNAME), br(),
+                        paste0('ADDRESS: ', rec$ADDRESS), br(),
+                        paste0('STATE: ', rec$STATE), br(),
+                        paste0('COUNTY: ', rec$COUNTY_NAME), br(),
+                        paste0('CITY: ', rec$CITY), br(),
+                        paste0('ZIP: ', rec$ZIP), br()
+                      )
+                    ),
+                    column(
+                      width = 4,
+                      shiny::img(src = paste0('images/nf-', as.character(as.numeric(rec$PROVNUM) %% 10), '.jpeg'), width = '100%', class = 'rightAlign')
                     )
-                  ),
-                  column(
-                    width = 4,
-                    shiny::img(src = paste0('images/nf-', as.character(as.numeric(rec$PROVNUM) %% 10), '.jpeg'), width = '100%')
                   )
-                )
-              ),
-              box(
-                width = 12, solidHeader = TRUE, title = 'Additional Information', status = 'info', collapsible = TRUE,
-                div(
-                  paste0('OWNERSHIP: ', rec$OWNERSHIP), br(),
-                  paste0('CERTIFICATION: ', rec$CERTIFICATION), br(),
-                  paste0('PARTICIPATION DATE: ', rec$PARTICIPATION_DATE), br(),
-                  paste0('CERTIFIED BEDS: ', rec$BEDCERT), br(),
-                  paste0('RESIDENTS: ', rec$RESTOT), br(),
-                  paste0('OCCUPANCY: ', 100 * rec$RESTOT / rec$BEDCERT, '%'), br(),
-                  paste0('PARTICIPATION DATE: ', rec$PARTICIPATION_DATE), br(),
-                  paste0('FEDERAL PROVIDER NUMBER: ', rec$PROVNUM), br()
+                ),
+                box(
+                  width = 12, solidHeader = TRUE, title = 'Additional Information', status = 'info', collapsible = TRUE,
+                  div(
+                    paste0('OWNERSHIP: ', rec$OWNERSHIP), br(),
+                    paste0('CERTIFICATION: ', rec$CERTIFICATION), br(),
+                    paste0('PARTICIPATION DATE: ', rec$PARTICIPATION_DATE), br(),
+                    paste0('CERTIFIED BEDS: ', rec$BEDCERT), br(),
+                    paste0('RESIDENTS: ', rec$RESTOT), br(),
+                    paste0('OCCUPANCY: ', 100 * rec$RESTOT / rec$BEDCERT, '%'), br(),
+                    paste0('PARTICIPATION DATE: ', rec$PARTICIPATION_DATE), br(),
+                    paste0('FEDERAL PROVIDER NUMBER: ', rec$PROVNUM), br()
+                  )
                 )
               )
             )
           )
-        )
-      } else {
-        showModal(
-          modalDialog(
-            title = 'PROVIDER DETAILS: NOT FOUND',
-            size = 'm', easyClose = TRUE,
-            h2('PROVIDER INFORMATION NOT FOUND :(')
+        } else {
+          showModal(
+            modalDialog(
+              title = 'PROVIDER DETAILS: NOT FOUND',
+              size = 'm', easyClose = TRUE,
+              h2('PROVIDER INFORMATION NOT FOUND :(')
+            )
           )
-        )
+        }
       }
     }
   )
@@ -319,31 +320,51 @@ function(input, output, session) {
   ################################################################################
   # CHOROPLETH MAP RENDERERS                                                     #
   ################################################################################
-  addShadeToChoropleth <- function(mapId, dataSVO, field) {
-    labels <- sprintf(
-      '<img src="images/flags-mini/%s.png"> &nbsp; <strong>%s</strong><br/>Residents: %g<br/>Facilities: %g<br/>Deficiencies: %g<br/>Residents Per-Facility: %g<br/>Deficiencies Per-Facility: %g<br/>Deficiencies Per-Resident: %g<br/>Substandard Deficiencies Per-Facility: %g<br/>Substandard Deficiencies Per-Resident: %g',
-      tolower(dataSVO$STUSPS10),
-      dataSVO$NAME10,
+  makeLabels <- function(dataSVO) {
+    sprintf(
+      '<strong>%s</strong><img src="images/flags-mini/%s.png" class = "rightAlign"/><br/>
+      Residents: %g<br/>
+      Facilities: %g<br/>
+      Residents Per-Facility: %g<br/>
+      Occupancy: %g%%<br/>
+      Deficiencies: %g<br/>
+      Deficiencies Per-Facility: %g<br/>
+      Deficiencies Per-Resident: %g<br/>
+      Substandard Deficiencies: %g<br/>
+      Substandard Deficiencies Per-Facility: %g<br/>
+      Substandard Deficiencies Per-Resident: %g<br/>
+      ',
+      dataSVO$NAME10, tolower(dataSVO$STUSPS10),
       dataSVO$RESIDENTS_BY_STATE,
       dataSVO$FACILITIES_BY_STATE,
-      dataSVO$DEFICIENCIES_BY_STATE,
       dataSVO$RESIDENTS_BY_STATE_PER_FACILITY,
+      dataSVO$OCCUPANCY_BY_STATE,
+      dataSVO$DEFICIENCIES_BY_STATE,
       dataSVO$DEFICIENCIES_BY_STATE_PER_FACILITY,
       dataSVO$DEFICIENCIES_BY_STATE_PER_RESIDENT,
+      dataSVO$SUBSTANDARD_DEFICIENCIES_BY_STATE,
       dataSVO$SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_FACILITY,
       dataSVO$SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_RESIDENT
     ) %>% lapply(htmltools::HTML)
-    dataSVO$histoField <- dataSVO[[field]]
-    paletteFn <- colorNumeric(palette = 'YlOrRd', domain = dataSVO$histoField, na.color = 'white')
-    #View(dataSVO@data)
-    leafletProxy('dashBoardChoropleth', data = dataSVO) %>% clearControls() %>% addLegend(
-      values = dataSVO$histoField, title = str_title_case(tolower(field)),
-      pal = paletteFn, position = 'topright', opacity = 0.6
-    ) %>% clearShapes() %>% addPolygons(
-      fillColor =  ~ paletteFn(histoField), label = labels, 
-      weight = 2, opacity = 1, color = 'white', dashArray = '3', fillOpacity = 0.7,
-      highlight = highlightOptions(weight = 4, color = '#666', dashArray = '', fillOpacity = 0.7, bringToFront = TRUE),
-      labelOptions = labelOptions(style = list('font-weight' = 'normal', padding = '3px 8px'), textsize = '15px', direction = 'auto')
+  }
+
+  addShadeToChoropleth <- function(mapId, dataSVO, field) {
+    withProgress(
+      message='Rendering choropleth...', detail = field, {
+        dataSVO$histoField <- dataSVO[[field]]
+        paletteFn <- colorNumeric(palette = 'YlOrRd', domain = dataSVO$histoField, na.color = 'white')
+        #View(dataSVO@data)
+        leafletProxy('dashBoardChoropleth', data = dataSVO) %>% clearControls() %>%
+          addLegend(
+            values = dataSVO$histoField, title = str_title_case(tolower(field)),
+            pal = paletteFn, position = 'topright', opacity = 0.6
+          ) %>% clearShapes() %>% addPolygons(
+            fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
+            weight = 2, opacity = 1, color = 'white', dashArray = '3', fillOpacity = 0.7,
+            highlight = highlightOptions(weight = 4, color = '#666', dashArray = '', fillOpacity = 0.7, bringToFront = TRUE),
+            labelOptions = labelOptions(style = list('font-weight' = 'normal', padding = '3px 8px'), textsize = '15px', direction = 'auto')
+          )
+      }
     )
   }
   
@@ -358,27 +379,17 @@ function(input, output, session) {
   output$dashBoardChoropleth <- renderLeaflet({isolate(
     withProgress(
       message='Rendering choropleth...', detail = 'DEFICIENCIES', {
-        labels <- sprintf(
-          '<img src="images/flags-mini/%s.png"> &nbsp; <strong>%s</strong><br/>Residents: %g<br/>Facilities: %g<br/>Deficiencies: %g<br/>Residents Per-Facility: %g<br/>Deficiencies Per-Facility: %g<br/>Deficiencies Per-Resident: %g<br/>Substandard Deficiencies Per-Facility: %g<br/>Substandard Deficiencies Per-Resident: %g',
-          tolower(histoSVO$STUSPS10),
-          histoSVO$NAME10,
-          histoSVO$RESIDENTS_BY_STATE,
-          histoSVO$FACILITIES_BY_STATE,
-          histoSVO$DEFICIENCIES_BY_STATE,
-          histoSVO$RESIDENTS_BY_STATE_PER_FACILITY,
-          histoSVO$DEFICIENCIES_BY_STATE_PER_FACILITY,
-          histoSVO$DEFICIENCIES_BY_STATE_PER_RESIDENT,
-          histoSVO$SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_FACILITY,
-          histoSVO$SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_RESIDENT
-        ) %>% lapply(htmltools::HTML)
-        paletteFn <- colorNumeric(palette = 'YlOrRd', domain = histoSVO$DEFICIENCIES_BY_STATE, na.color = 'white')
+        field <- 'DEFICIENCIES_BY_STATE'
+        dataSVO <- histoSVO
+        dataSVO$histoField <- dataSVO[[field]]
+        paletteFn <- colorNumeric(palette = 'YlOrRd', domain = dataSVO$histoField, na.color = 'white')
+        #View(dataSVO@data)
         base_choropleth %>% setView(-98, 40, 4) %>%
           addLegend(
-            values = histoSVO$DEFICIENCIES_BY_STATE, title = 'Deficiencies',
+            values = dataSVO$histoField, title = str_title_case(tolower(field)),
             pal = paletteFn, position = 'topright', opacity = 0.6
-          ) %>%
-          addPolygons(
-            data = histoSVO, fillColor =  ~ paletteFn(DEFICIENCIES_BY_STATE), label = labels,
+          ) %>% addPolygons(
+            data = dataSVO, fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
             weight = 2, opacity = 1, color = 'white', dashArray = '3', fillOpacity = 0.7,
             highlight = highlightOptions(weight = 4, color = '#666', dashArray = '', fillOpacity = 0.7, bringToFront = TRUE),
             labelOptions = labelOptions(style = list('font-weight' = 'normal', padding = '3px 8px'), textsize = '15px', direction = 'auto')

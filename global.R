@@ -7,6 +7,9 @@ pacman::p_load(
   'rgdal', 'plotly', 'RColorBrewer', 'dplyr', 'lettercase'
 )
 
+# Bring in configuration
+source('./config.R')
+
 choropleth.map.providers <- providers[names(providers) %in% c('Stamen.TonerLite', 'CartoDB.Positron', 'OpenStreetMap', 'Esri.WorldTopoMap', 'Esri.WorldGrayCanvas')]
 provider.filters <- c('In Hospital' = 'IN_HOSP', 'Not In Hospital' = 'NOT_IN_HOSP', 'For-Profit' = 'FOR_PROFIT', 'Non-Profit' = 'NON_PROFIT', 'Medicare' = 'MEDICARE', 'Medicaid' = 'MEDICAID', 'Medicare and Medicaid' = 'MEDICARE_AND_MEDICAID')
 choropleth.shade <- c('Deficiencies', 'Substandard Deficiencies', 'Penalties')
@@ -25,44 +28,16 @@ deficiencies.all <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'
 deficiencies.substandard <- append(c('F', 'H', 'I'), deficiencies.level_4)
 
 # Data
-nf.snf_puf_providers          <- NULL
-nf.deficiencies               <- NULL
-nf.ownership                  <- NULL
-nf.penalties                  <- NULL
-nf.providers                  <- NULL
-nf.qual_claims                <- NULL
-nf.qual_MDS                   <- NULL
-nf.state_averages             <- NULL
-nf.survey_summary             <- NULL
-nf.residents_per_state        <- NULL
-nf.dashboard_deficiencies     <- NULL
-us_states_geo                 <- rgdal::readOGR(paste0(app_data, 'us-states.json'), 'OGRGeoJSON')
-
-expire_cache <- function() {
-  nf.snf_puf_providers          <<- NULL
-  nf.deficiencies               <<- NULL
-  nf.ownership                  <<- NULL
-  nf.penalties                  <<- NULL
-  nf.providers                  <<- NULL
-  nf.qual_claims                <<- NULL
-  nf.qual_MDS                   <<- NULL
-  nf.state_averages             <<- NULL
-  nf.survey_summary             <<- NULL
-  nf.residents_per_state        <<- NULL
-  nf.dashboard_deficiencies     <<- NULL
-}
-
-all_datasets <- sort(c(
-  'Deficiencies' = 'DEFICIENCIES', 'Ownership' = 'OWNERSHIP', 'Penalties' = 'PENALTIES', 'Provider Information' = 'PROVIDER_INFO',
-  'Quality Measure Claims' = 'QUAL_CLAIMS', 'Quality Measure MDS' = 'QUAL_MDS', 'State Averages' = 'STATE_AVG', 'Survey Summary' = 'SURVEY_SUMMARY',
-  'SNF PUF Provider Information' = 'SNF_PUF_PROVIDER_INFO'
-))
+us_states_geo <- NULL
+CACHE_ <- list()
 
 provnum_datasets <- sort(c(
   'Deficiencies' = 'DEFICIENCIES', 'Ownership' = 'OWNERSHIP', 'Penalties' = 'PENALTIES', 'Provider Information' = 'PROVIDER_INFO',
   'Quality Measure Claims' = 'QUAL_CLAIMS', 'Quality Measure MDS' = 'QUAL_MDS', 'Survey Summary' = 'SURVEY_SUMMARY',
   'SNF PUF Provider Information' = 'SNF_PUF_PROVIDER_INFO'
 ))
+
+all_datasets <- sort(c(provnum_datasets, c('State Averages' = 'STATE_AVG')))
 
 compress_csv <- function(path) {
   for (f in list.files(path, pattern = '*_Download.csv$')) {
@@ -88,7 +63,8 @@ refresh_data <- function() {
   utils::unzip(paste0(app_tmp, 'temp.zip'), exdir = app_data)
   compress_csv(app_data)
   unlink(app_tmp, recursive = TRUE)
-  expire_cache()
+  # Expire the cache
+  CACHE_ <- list()
 }
 
 get_datafiles_info <- function() {
@@ -106,118 +82,123 @@ get_filename <- function(data_set) {
   if (data_set == 'STATE_AVG') return(paste0(app_data, 'StateAverages_Download.csv.gz'))
   if (data_set == 'SURVEY_SUMMARY') return(paste0(app_data, 'SurveySummary_Download.csv.gz'))
   if (data_set == 'SNF_PUF_PROVIDER_INFO') return(paste0(app_data, 'SNF_PUF_Provider.csv.gz'))
-  NULL
 }
 
 get_dataset <- function(data_set) {
   #print(paste0('get_dataset: ', data_set))
+  if (data_set == 'US_STATES_GEO') {
+    if (is.null(us_states_geo)) {
+      us_states_geo <<- rgdal::readOGR(paste0(app_data, 'us-states.json'), 'OGRGeoJSON')
+    }
+    return(us_states_geo)
+  }
   if (data_set == 'DEFICIENCIES') {
-    if(is.null(nf.deficiencies)) {
+    if (is.null(CACHE_$DEFICIENCIES)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.deficiencies <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$DEFICIENCIES <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.deficiencies)
+    return(CACHE_$DEFICIENCIES)
   }
   if (data_set == 'OWNERSHIP') {
-    if (is.null(nf.ownership)) {
+    if (is.null(CACHE_$OWNERSHIP)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.ownership <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$OWNERSHIP <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.ownership)
+    return(CACHE_$OWNERSHIP)
   }
   if (data_set == 'PENALTIES') {
-    if (is.null(nf.penalties)) {
+    if (is.null(CACHE_$PENALTIES)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.penalties <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$PENALTIES <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.penalties)
+    return(CACHE_$PENALTIES)
   }
   if (data_set == 'PROVIDER_INFO') {
-    if (is.null(nf.providers)) {
-      str(nf.providers)
+    if (is.null(CACHE_$PROVIDER_INFO)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.providers <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$PROVIDER_INFO <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.providers)
+    return(CACHE_$PROVIDER_INFO)
   }
   if (data_set == 'QUAL_CLAIMS') {
-    if (is.null(nf.qual_claims)) {
+    if (is.null(CACHE_$QUAL_CLAIMS)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.qual_claims <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$QUAL_CLAIMS <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.qual_claims)
+    return(CACHE_$QUAL_CLAIMS)
   }
   if (data_set == 'QUAL_MDS') {
-    if (is.null(nf.qual_MDS)) {
+    if (is.null(CACHE_$QUAL_MDS)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.qual_MDS <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$QUAL_MDS <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.qual_MDS)
+    return(CACHE_$QUAL_MDS)
   }
   if (data_set == 'SURVEY_SUMMARY') {
-    if (is.null(nf.survey_summary)) {
+    if (is.null(CACHE_$SURVEY_SUMMARY)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.survey_summary <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      CACHE_$SURVEY_SUMMARY <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.survey_summary)
+    return(CACHE_$SURVEY_SUMMARY)
   }
   if (data_set == 'STATE_AVG') {
-    if (is.null(nf.state_averages)) {
+    if (is.null(CACHE_$STATE_AVG)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      nf.state_averages <<- df
+      CACHE_$STATE_AVG <<- df
     }
-    return(nf.state_averages)
+    return(CACHE_$STATE_AVG)
   }
   if (data_set == 'SNF_PUF_PROVIDER_INFO') {
-    if (is.null(nf.snf_puf_providers)) {
+    if (is.null(CACHE_$SNF_PUF_PROVIDER_INFO)) {
       df <- read.csv(file = get_filename(data_set))
       names(df) <- toupper(names(df))
-      # Use PROVNUM instead of PROVIDER.ID
-      names(df)[names(df) == 'PROVIDER.ID'] <- 'PROVNUM'
-      nf.snf_puf_providers <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM= as.numeric(as.character(PROVNUM)))
+      rename(df, PROVNUM = PROVIDER.ID)
+      CACHE_$SNF_PUF_PROVIDER_INFO <<- transform(df[grep('^\\d+$', df$PROVNUM),,drop=FALSE], PROVNUM = as.numeric(as.character(PROVNUM)))
     }
-    return(nf.snf_puf_providers)
+    return(CACHE_$SNF_PUF_PROVIDER_INFO)
   }
   if (data_set == 'RESIDENTS_BY_STATE') {
-    if (is.null(nf.residents_per_state)) {
+    if (is.null(CACHE_$RESIDENTS_BY_STATE)) {
       # derive this data set
-      df <- merge(
-        get_dataset('PROVIDER_INFO') %>% group_by(STATE) %>% summarise(RESIDENTS_BY_STATE = sum(RESTOT)),
+      CACHE_$RESIDENTS_BY_STATE <<- merge(
+        get_dataset('PROVIDER_INFO') %>% group_by(STATE) %>% summarise_at(c('RESTOT', 'BEDCERT'), sum),
         get_dataset('PROVIDER_INFO') %>% count(STATE),
         by = 'STATE', all.x = TRUE
-      )
-      names(df)[names(df) == 'n'] <- 'FACILITIES_BY_STATE'
-      nf.residents_per_state <<- df
+      )  %>% rename(FACILITIES_BY_STATE = n, RESIDENTS_BY_STATE = RESTOT, BEDCERT_BY_STATE = BEDCERT)
     }
-    return(nf.residents_per_state)
+    return(CACHE_$RESIDENTS_BY_STATE)
   }
   if (data_set == 'DASHBOARD_DEFICIENCIES') {
-    if (is.null(nf.dashboard_deficiencies)) {
-      df1 <- get_dataset('DEFICIENCIES') %>% filter(SCOPE %in% deficiencies.all) %>% count(STATE) %>% rename_(.dots=setNames('n', 'DEFICIENCIES_BY_STATE'))
-      df2 <- get_dataset('DEFICIENCIES') %>% filter(SCOPE %in% deficiencies.substandard) %>% count(STATE) %>% rename_(.dots=setNames('n', 'SUBSTANDARD_DEFICIENCIES_BY_STATE'))
-      nf.dashboard_deficiencies <<- transform(
+    if (is.null(CACHE_$nf.dashboard_deficiencies)) {
+      CACHE_$DASHBOARD_DEFICIENCIES <<- transform(
         merge(
-          merge(get_dataset('RESIDENTS_BY_STATE'), df1, by = 'STATE', all.x = TRUE),
-          df2, by = 'STATE', all.x = TRUE
+          merge(
+            get_dataset('RESIDENTS_BY_STATE'),
+            filter(get_dataset('DEFICIENCIES'), SCOPE %in% deficiencies.all) %>% count(STATE) %>% rename(DEFICIENCIES_BY_STATE = n),
+            by = 'STATE', all.x = TRUE
+          ),
+          filter(get_dataset('DEFICIENCIES'), SCOPE %in% deficiencies.substandard) %>% count(STATE) %>% rename(SUBSTANDARD_DEFICIENCIES_BY_STATE = n),
+          by = 'STATE', all.x = TRUE
         ),
         RESIDENTS_BY_STATE_PER_FACILITY = RESIDENTS_BY_STATE / FACILITIES_BY_STATE,
         DEFICIENCIES_BY_STATE_PER_FACILITY = DEFICIENCIES_BY_STATE / FACILITIES_BY_STATE,
         DEFICIENCIES_BY_STATE_PER_RESIDENT = DEFICIENCIES_BY_STATE / RESIDENTS_BY_STATE,
         SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_FACILITY = SUBSTANDARD_DEFICIENCIES_BY_STATE / FACILITIES_BY_STATE,
-        SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_RESIDENT = SUBSTANDARD_DEFICIENCIES_BY_STATE / RESIDENTS_BY_STATE
+        SUBSTANDARD_DEFICIENCIES_BY_STATE_PER_RESIDENT = SUBSTANDARD_DEFICIENCIES_BY_STATE / RESIDENTS_BY_STATE,
+        OCCUPANCY_BY_STATE = 100 * RESIDENTS_BY_STATE / BEDCERT_BY_STATE
       )
     }
-    return(nf.dashboard_deficiencies)
+    return(CACHE_$DASHBOARD_DEFICIENCIES)
   }
-  return(NULL)
+  NULL
 }
 
 get_state_abb <- function(state_names) {
@@ -242,7 +223,7 @@ app_cloc <- function() {
 }
 
 histoSVO <- {
-  sp::merge(us_states_geo, get_dataset('DASHBOARD_DEFICIENCIES'), by.x = 'STUSPS10', by.y = 'STATE') %>% na.omit()
+  sp::merge(get_dataset('US_STATES_GEO'), get_dataset('DASHBOARD_DEFICIENCIES'), by.x = 'STUSPS10', by.y = 'STATE') %>% na.omit()
 }
 
 histoSVO_by_state <- function(states_to_remove = c()) {
@@ -250,7 +231,7 @@ histoSVO_by_state <- function(states_to_remove = c()) {
 }
 
 base_choropleth <- {
-  l <- leaflet() %>%
+  m <- leaflet() %>%
     addLayersControl(baseGroups = names(choropleth.map.providers), position = 'topleft') %>%
     addMiniMap(tiles = choropleth.map.providers[[1]], toggleDisplay = TRUE, position = 'bottomleft') %>%
     htmlwidgets::onRender("
@@ -259,7 +240,7 @@ base_choropleth <- {
                           myMap.on('baselayerchange', function (e) { myMap.minimap.changeLayer(L.tileLayer.provider(e.name));})
                           }")
   for (provider in choropleth.map.providers) {
-    l <- l %>% addProviderTiles(provider, group = provider, options = providerTileOptions(minZoom = 2))          
+    m <- addProviderTiles(m, provider, group = provider, options = providerTileOptions(minZoom = 2))
   }
-  l
+  m
 }

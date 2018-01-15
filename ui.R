@@ -12,6 +12,7 @@ header <- dashboardHeader(title = title, titleWidth = 256)
 sidebar <- dashboardSidebar(
   width = 256,
   useShinyjs(),
+  tags$head(tags$style(".rightAlign{float:right;}")),
   sidebarMenu(
     id = 'mainTabs',
     menuItem('Dashboard', tabName = 'dashboard', icon = icon('dashboard'), selected = TRUE),
