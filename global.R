@@ -14,11 +14,6 @@ choropleth.map.providers <- providers[names(providers) %in% c('Stamen.TonerLite'
 provider.filters <- c('In Hospital' = 'IN_HOSP', 'Not In Hospital' = 'NOT_IN_HOSP', 'For-Profit' = 'FOR_PROFIT', 'Non-Profit' = 'NON_PROFIT', 'Medicare' = 'MEDICARE', 'Medicaid' = 'MEDICAID', 'Medicare and Medicaid' = 'MEDICARE_AND_MEDICAID')
 choropleth.shade <- c('Deficiencies', 'Substandard Deficiencies', 'Penalties')
 
-# Directories
-app_home <- path.expand('~/rstudio/CMS-NF/')
-app_data <- paste0(app_home, 'data/')
-app_tmp <- paste0(app_data, 'tmp/')
-
 # Deficiencies
 deficiencies.level_1 <- c('A', 'B', 'C')
 deficiencies.level_2 <- c('D', 'E', 'F')
