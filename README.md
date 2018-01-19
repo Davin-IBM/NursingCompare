@@ -25,4 +25,3 @@ After loading up some data (which takes several seconds), the application ought 
 ![Application Dashboard](docs/images/Dashboard.png)
 
 Congratulations!  You've got the application running.
-
