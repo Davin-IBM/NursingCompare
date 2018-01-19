@@ -14,7 +14,7 @@ choropleth.map.providers <- providers[names(providers) %in% c('Stamen.TonerLite'
 provider.filters <- c('In Hospital' = 'IN_HOSP', 'Not In Hospital' = 'NOT_IN_HOSP', 'For-Profit' = 'FOR_PROFIT', 'Non-Profit' = 'NON_PROFIT', 'Medicare' = 'MEDICARE', 'Medicaid' = 'MEDICAID', 'Medicare and Medicaid' = 'MEDICARE_AND_MEDICAID')
 choropleth.shade <- c('Deficiencies', 'Substandard Deficiencies', 'Penalties')
 
-# Deficiencies
+# Deficiencies by level
 deficiencies.level_1 <- c('A', 'B', 'C')
 deficiencies.level_2 <- c('D', 'E', 'F')
 deficiencies.level_3 <- c('G', 'H', 'I')
@@ -22,7 +22,7 @@ deficiencies.level_4 <- c('J', 'K', 'L')
 deficiencies.all <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L')
 deficiencies.substandard <- append(c('F', 'H', 'I'), deficiencies.level_4)
 
-# Data
+# Global data
 us_states_geo <- NULL
 CACHE_ <- list()
 
@@ -34,6 +34,7 @@ provnum_datasets <- sort(c(
 
 all_datasets <- sort(c(provnum_datasets, c('State Averages' = 'STATE_AVG')))
 
+# R can read gzipped compressed CSV files, so lets do that to save space (about 10:1)
 compress_csv <- function(path) {
   for (f in list.files(path, pattern = '*_Download.csv$')) {
     print(paste0('compressing: ', f))
