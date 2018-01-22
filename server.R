@@ -359,7 +359,7 @@ function(input, output, session) {
             values = dataSVO$histoField, title = str_title_case(tolower(field)),
             pal = paletteFn, position = 'topright', opacity = 0.6
           ) %>% clearShapes() %>% addPolygons(
-            fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
+            group = field, fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
             weight = 2, opacity = 1, color = 'white', dashArray = '3', fillOpacity = 0.7,
             highlight = highlightOptions(weight = 4, color = '#666', dashArray = '', fillOpacity = 0.7, bringToFront = TRUE),
             labelOptions = labelOptions(style = list('font-weight' = 'normal', padding = '3px 8px'), textsize = '15px', direction = 'auto')
@@ -389,7 +389,7 @@ function(input, output, session) {
             values = dataSVO$histoField, title = str_title_case(tolower(field)),
             pal = paletteFn, position = 'topright', opacity = 0.6
           ) %>% addPolygons(
-            data = dataSVO, fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
+            group = field, data = dataSVO, fillColor =  ~ paletteFn(histoField), label = makeLabels(dataSVO),
             weight = 2, opacity = 1, color = 'white', dashArray = '3', fillOpacity = 0.7,
             highlight = highlightOptions(weight = 4, color = '#666', dashArray = '', fillOpacity = 0.7, bringToFront = TRUE),
             labelOptions = labelOptions(style = list('font-weight' = 'normal', padding = '3px 8px'), textsize = '15px', direction = 'auto')

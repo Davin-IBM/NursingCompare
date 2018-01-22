@@ -46,16 +46,27 @@ compress_csv <- function(path) {
 refresh_data <- function() {
   unlink(app_tmp, recursive = TRUE)
   dir.create(app_tmp, recursive = TRUE)
-  # Nursing Home compare data
-  curl::curl_download(
-    'https://data.medicare.gov/views/bg9k-emty/files/d3d503f4-776e-436d-a57f-caab74eeb59f?content_type=application%2Fzip%3B%20charset%3Dbinary&filename=NursingHome_Revised_Flatfiles.zip',
-    paste0(app_tmp, 'temp.zip'))
+  if(!file.exists(paste0(app_data, 'zipcode_data.csv.gz'))) {
+    curl::curl_download(
+      'http://www2.census.gov/geo/docs/maps-data/data/gazetteer/2017_Gazetteer/2017_Gaz_zcta_national.zip',
+      paste0(app_tmp, '2017_Gaz_zcta_national.zip'))
+    utils::unzip(paste0(app_tmp, '2017_Gaz_zcta_national.zip'), exdir = app_data)
+    write.csv(
+      read.table(file = paste0(app_data, '2017_Gaz_zcta_national.txt'), sep = '\t', header = TRUE),
+      paste0(app_data, 'zipcode_data.csv'), row.names = FALSE)
+    unlink(paste0(app_data, '2017_Gaz_zcta_national.txt'))
+    system(paste0('gzip ', app_data, 'zipcode_data.csv'))
+  }
   if(!file.exists(paste0(app_data, 'us-states.json'))) {
     # US States GeoJSON data
     curl::curl_download(
       'https://github.com/jgoodall/us-maps/raw/master/geojson/state.geo.json',
       paste0(app_data, 'us-states.json'))
   }
+  # Nursing Home compare data
+  curl::curl_download(
+    'https://data.medicare.gov/views/bg9k-emty/files/d3d503f4-776e-436d-a57f-caab74eeb59f?content_type=application%2Fzip%3B%20charset%3Dbinary&filename=NursingHome_Revised_Flatfiles.zip',
+    paste0(app_tmp, 'temp.zip'))
   utils::unzip(paste0(app_tmp, 'temp.zip'), exdir = app_data)
   compress_csv(app_data)
   unlink(app_tmp, recursive = TRUE)
@@ -78,14 +89,14 @@ get_filename <- function(data_set) {
   if (data_set == 'STATE_AVG') return(paste0(app_data, 'StateAverages_Download.csv.gz'))
   if (data_set == 'SURVEY_SUMMARY') return(paste0(app_data, 'SurveySummary_Download.csv.gz'))
   if (data_set == 'SNF_PUF_PROVIDER_INFO') return(paste0(app_data, 'SNF_PUF_Provider.csv.gz'))
+  if (data_set == 'US_STATES_GEO') return(paste0(app_data, 'us-states.json'))
+  if (data_set == 'ZIPCODE_DATA') return(paste0(app_data, 'zipcode_data.csv.gz'))
 }
 
 get_dataset <- function(data_set) {
   #print(paste0('get_dataset: ', data_set))
   if (data_set == 'US_STATES_GEO') {
-    if (is.null(us_states_geo)) {
-      us_states_geo <<- rgdal::readOGR(paste0(app_data, 'us-states.json'), 'OGRGeoJSON')
-    }
+    if (is.null(us_states_geo)) us_states_geo <<- rgdal::readOGR(get_filename(data_set), 'OGRGeoJSON')
     return(us_states_geo)
   }
   if (data_set == 'DEFICIENCIES') {
